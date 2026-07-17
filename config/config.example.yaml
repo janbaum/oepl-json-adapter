@@ -1,0 +1,45 @@
+ap:
+  base_url: "http://192.168.1.50"
+
+tags:
+  - name: "hallway"
+    mac: "0000000000000000"
+    width: 800
+    height: 480
+    color: "bwy"
+    dither: false
+    refresh_seconds: 900
+    dashboard: "overview"
+
+dashboards:
+  overview:
+    title: "Today"
+    timezone: "Europe/Berlin"
+    sections:
+      calendar:
+        enabled: true
+        max_items: 5
+      tasks:
+        enabled: true
+        max_items: 5
+      transit:
+        enabled: true
+        max_items: 5
+      news:
+        enabled: true
+        max_items: 4
+
+sources:
+  caldav:
+    enabled: false
+    url: "https://nextcloud.example.com/remote.php/dav"
+    username: "your-user"
+    password: "your-app-password"
+  transit:
+    enabled: false
+    provider: "placeholder"
+    station_id: ""
+  rss:
+    enabled: false
+    urls:
+      - "https://example.com/feed.xml"
