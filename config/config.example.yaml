@@ -33,13 +33,36 @@ sources:
   caldav:
     enabled: false
     url: "https://nextcloud.example.com/remote.php/dav"
-    username: "your-user"
-    password: "your-app-password"
+    username: "${NEXTCLOUD_USERNAME}"
+    password: "${NEXTCLOUD_APP_PASSWORD}"
+    days_ahead: 14
+    discover: true
+    calendar_urls: []
+    task_urls: []
   transit:
     enabled: false
-    provider: "placeholder"
+    provider: "db_transport_rest"
+    base_url: "https://v6.db.transport.rest"
     station_id: ""
+    direction: ""
+    duration_minutes: 60
+    timeout_seconds: 20
+    language: "de"
+    profile: "dbnav"
+    products:
+      nationalExpress: true
+      national: true
+      regionalExpress: true
+      regional: true
+      suburban: true
+      bus: true
+      ferry: true
+      subway: true
+      tram: true
+      taxi: true
   rss:
     enabled: false
+    timeout_seconds: 20
     urls:
-      - "https://example.com/feed.xml"
+      - url: "https://example.com/feed.xml"
+        source: "Example"

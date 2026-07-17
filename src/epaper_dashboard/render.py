@@ -53,7 +53,7 @@ def render_dashboard(tag: TagConfig, title: str, data: DashboardData, output_pat
     for dep in data.departures[:5]:
         color = YELLOW if dep.delay_minutes > 0 or dep.cancelled else WHITE
         draw.rectangle((left_x + 8, y - 2, left_x + half - 8, y + 24), fill=color)
-        status = "X" if dep.cancelled else f"+{dep.delay_minutes}" if dep.delay_minutes else ""
+        status = _departure_status(dep.delay_minutes, dep.cancelled)
         text = f"{dep.time.strftime('%H:%M')}  {dep.line}  {_clip(dep.destination, 21)} {status}"
         draw.text((left_x + 12, y), text, font=fonts.small, fill=BLACK)
         y += 29
@@ -94,3 +94,13 @@ def _section(draw: ImageDraw.ImageDraw, title: str, x: int, y: int, w: int, h: i
 
 def _clip(value: str, limit: int) -> str:
     return value if len(value) <= limit else value[: limit - 3] + "..."
+
+
+def _departure_status(delay_minutes: int, cancelled: bool) -> str:
+    if cancelled:
+        return "X"
+    if delay_minutes > 0:
+        return f"+{delay_minutes}"
+    if delay_minutes < 0:
+        return str(delay_minutes)
+    return ""

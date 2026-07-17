@@ -7,7 +7,7 @@ from pathlib import Path
 
 from epaper_dashboard.config import AppConfig, TagConfig, load_config
 from epaper_dashboard.render import render_dashboard
-from epaper_dashboard.sources.placeholder import load_placeholder_data
+from epaper_dashboard.sources import load_dashboard_data
 from epaper_dashboard.upload import OpenEPaperLinkClient
 
 LOG = logging.getLogger(__name__)
@@ -20,16 +20,21 @@ def main() -> None:
     client = OpenEPaperLinkClient(config.ap_base_url)
 
     LOG.info("Starting epaper dashboard renderer for %d tag(s)", len(config.tags))
+    next_runs = {tag.name: 0.0 for tag in config.tags}
 
     while True:
-        started = time.monotonic()
+        now = time.monotonic()
         for tag in config.tags:
+            if now < next_runs[tag.name]:
+                continue
             try:
                 _process_tag(config, client, tag)
             except Exception:
                 LOG.exception("Failed to update tag %s", tag.name)
+            finally:
+                next_runs[tag.name] = time.monotonic() + tag.refresh_seconds
 
-        sleep_for = _next_sleep(config, started)
+        sleep_for = _next_sleep(next_runs)
         LOG.info("Sleeping for %s seconds", sleep_for)
         time.sleep(sleep_for)
 
@@ -37,7 +42,7 @@ def main() -> None:
 def _process_tag(config: AppConfig, client: OpenEPaperLinkClient, tag: TagConfig) -> None:
     dashboard = config.dashboards.get(tag.dashboard, {})
     title = str(dashboard.get("title", tag.name))
-    data = load_placeholder_data()
+    data = load_dashboard_data(config.sources, dashboard)
 
     image_path = config.data_dir / f"{tag.name}.jpg"
     render_dashboard(tag, title, data, image_path)
@@ -63,10 +68,9 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _next_sleep(config: AppConfig, started: float) -> int:
-    interval = min(tag.refresh_seconds for tag in config.tags)
-    elapsed = int(time.monotonic() - started)
-    return max(30, interval - elapsed)
+def _next_sleep(next_runs: dict[str, float]) -> int:
+    next_due = min(next_runs.values())
+    return max(5, int(next_due - time.monotonic()))
 
 
 if __name__ == "__main__":
