@@ -35,6 +35,14 @@ class NewsItem:
 
 
 @dataclass(frozen=True)
+class TagStatus:
+    battery_mv: int | None = None
+    battery_percent: int | None = None
+    rssi: int | None = None
+    last_seen: str | None = None
+
+
+@dataclass(frozen=True)
 class DashboardData:
     calendar: list[CalendarEvent]
     tasks: list[TaskItem]

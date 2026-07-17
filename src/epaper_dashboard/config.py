@@ -19,6 +19,7 @@ class TagConfig:
     height: int
     color: str
     dither: bool
+    lut: str | None
     refresh_seconds: int
     dashboard: str
 
@@ -29,6 +30,7 @@ class AppConfig:
     tags: list[TagConfig]
     dashboards: dict[str, Any]
     sources: dict[str, Any]
+    efficiency: dict[str, Any]
     data_dir: Path
 
 
@@ -48,6 +50,7 @@ def load_config() -> AppConfig:
             height=int(item["height"]),
             color=str(item.get("color", "bwy")),
             dither=bool(item.get("dither", False)),
+            lut=str(item["lut"]) if item.get("lut") else None,
             refresh_seconds=int(item.get("refresh_seconds", 900)),
             dashboard=str(item.get("dashboard", "overview")),
         )
@@ -62,6 +65,7 @@ def load_config() -> AppConfig:
         tags=tags,
         dashboards=dict(raw.get("dashboards", {})),
         sources=dict(raw.get("sources", {})),
+        efficiency=dict(raw.get("efficiency", {})),
         data_dir=data_dir,
     )
 

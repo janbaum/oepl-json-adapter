@@ -7,6 +7,7 @@ services:
       EPAPER_CONFIG: /config/config.yaml
       NEXTCLOUD_USERNAME: ${NEXTCLOUD_USERNAME:-}
       NEXTCLOUD_APP_PASSWORD: ${NEXTCLOUD_APP_PASSWORD:-}
+      RMV_ACCESS_ID: ${RMV_ACCESS_ID:-}
     volumes:
       - ./config:/config:ro
       - ./data:/data

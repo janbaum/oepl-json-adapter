@@ -9,7 +9,7 @@ The first scaffold includes:
 - OpenEPaperLink image upload client
 - CalDAV calendar/task fetching for Nextcloud and other CalDAV servers
 - RSS/Atom feed fetching
-- Train departure fetching through `v6.db.transport.rest`
+- Train departure fetching through RMV HAPI
 - Placeholder data fallback
 - Pillow-based 7.5 inch dashboard renderer
 - Change-hash check to avoid uploading identical images
@@ -35,6 +35,38 @@ The first scaffold includes:
 
 Generated images and upload state are stored in `./data`.
 
+## Efficiency
+
+By default, the service uploads only when dashboard content changes:
+
+```yaml
+efficiency:
+  upload_only_on_content_change: true
+```
+
+The content hash is based on calendar events, tasks, departures, and news. Render-only values such as the clock and tag battery status are intentionally ignored, so they do not wake tags by themselves.
+
+Battery status is read from the AP tag database endpoint and rendered in the header when enabled:
+
+```yaml
+dashboards:
+  overview:
+    rendering:
+      show_battery: true
+```
+
+OpenEPaperLink LUT behavior can be set per tag:
+
+```yaml
+tags:
+  - name: hallway
+    lut: ""
+```
+
+Leave `lut` empty unless you have confirmed a mode that works well with your exact tag type. Common UI/API modes include `default`, `no-repeat`, `fast-no-reds`, and `fast`.
+
+OpenEPaperLink also has lower-level diff image and LUT concepts, but for this container's `/imgupload` workflow the reliable battery saver is avoiding uploads entirely when content is unchanged. For display refresh behavior, configure the tag's LUT in the OpenEPaperLink tag settings or the per-tag `lut` field above.
+
 ## Project Layout
 
 ```text
@@ -54,5 +86,59 @@ src/epaper_dashboard/    Python package
 - Set `sources.caldav.enabled: true` after adding valid Nextcloud credentials.
 - Leave `discover: true` for the first run; use `calendar_urls` and `task_urls` later if you want explicit collection selection.
 - Set `sources.rss.enabled: true` and add feed URLs for news.
-- Set `sources.transit.enabled: true` and add a `station_id` from `https://v6.db.transport.rest/locations?query=...`.
+- Set `sources.transit.enabled: true` and add RMV HAPI station IDs.
 - Tune the renderer to the exact detected Nebular resolution.
+
+## RMV Transit
+
+Create an RMV HAPI access ID and put it in `.env`:
+
+```env
+RMV_ACCESS_ID=your-rmv-hapi-access-id
+```
+
+Show all departures from one station:
+
+```yaml
+sources:
+  transit:
+    enabled: true
+    provider: "rmv_hapi"
+    mode: "departure_board"
+    src_station_id: "3000010"
+    all_departures: true
+    excluded_products: ["ICE", "IC", "EC"]
+```
+
+Show departures from one station only toward another station/direction:
+
+```yaml
+sources:
+  transit:
+    enabled: true
+    provider: "rmv_hapi"
+    mode: "departure_board"
+    src_station_id: "3004801"
+    direction: "3000010"
+    all_departures: false
+    included_products: ["S", "RB", "RE"]
+```
+
+Show route options from source to destination:
+
+```yaml
+sources:
+  transit:
+    enabled: true
+    provider: "rmv_hapi"
+    mode: "trip"
+    src_station_id: "3004801"
+    dst_station_id: "3000010"
+    excluded_products: ["ICE", "IC", "EC"]
+```
+
+Use RMV's `location.name` endpoint to look up station IDs:
+
+```text
+https://www.rmv.de/hapi/location.name?input=Frankfurt%20Hauptbahnhof&format=json&accessId=...
+```

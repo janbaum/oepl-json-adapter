@@ -8,13 +8,24 @@ tags:
     height: 480
     color: "bwy"
     dither: false
+    # OpenEPaperLink LUT mode. Common AP/UI choices are:
+    # default, no-repeat, fast-no-reds, fast
+    # Leave empty to let the AP/tag default decide.
+    lut: ""
     refresh_seconds: 900
     dashboard: "overview"
+
+efficiency:
+  # When true, uploads are triggered only by dashboard content changes.
+  # Clock and battery rendering are intentionally ignored for this decision.
+  upload_only_on_content_change: true
 
 dashboards:
   overview:
     title: "Today"
     timezone: "Europe/Berlin"
+    rendering:
+      show_battery: true
     sections:
       calendar:
         enabled: true
@@ -41,25 +52,33 @@ sources:
     task_urls: []
   transit:
     enabled: false
-    provider: "db_transport_rest"
-    base_url: "https://v6.db.transport.rest"
-    station_id: ""
+    provider: "rmv_hapi"
+    base_url: "https://www.rmv.de/hapi"
+    access_id: "${RMV_ACCESS_ID}"
+    # departure_board: all or filtered departures from one station
+    # trip: journeys from src_station_id to dst_station_id
+    mode: "departure_board"
+    src_station_id: ""
+    dst_station_id: ""
+    # Optional RMV direction station ID for departure_board mode.
     direction: ""
+    # If false, departure_board mode requires either direction,
+    # destination_names, lines, or included_products to avoid a broad board.
+    all_departures: true
     duration_minutes: 60
+    max_journeys: 10
     timeout_seconds: 20
     language: "de"
-    profile: "dbnav"
-    products:
-      nationalExpress: true
-      national: true
-      regionalExpress: true
-      regional: true
-      suburban: true
-      bus: true
-      ferry: true
-      subway: true
-      tram: true
-      taxi: true
+    realtime: true
+    # Optional local post-filters. Product names match RMV output such as:
+    # ICE, IC, EC, RE, RB, S, U-Bahn, Tram, Bus
+    included_products: []
+    excluded_products:
+      - "ICE"
+      - "IC"
+      - "EC"
+    lines: []
+    destination_names: []
   rss:
     enabled: false
     timeout_seconds: 20

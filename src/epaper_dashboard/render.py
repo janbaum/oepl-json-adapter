@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from epaper_dashboard.config import TagConfig
-from epaper_dashboard.models import DashboardData
+from epaper_dashboard.models import DashboardData, TagStatus
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -14,7 +14,15 @@ YELLOW = (236, 205, 0)
 LIGHT = (235, 235, 235)
 
 
-def render_dashboard(tag: TagConfig, title: str, data: DashboardData, output_path: Path) -> Path:
+def render_dashboard(
+    tag: TagConfig,
+    title: str,
+    data: DashboardData,
+    output_path: Path,
+    *,
+    tag_status: TagStatus | None = None,
+    show_battery: bool = True,
+) -> Path:
     image = Image.new("RGB", (tag.width, tag.height), WHITE)
     draw = ImageDraw.Draw(image)
 
@@ -24,6 +32,8 @@ def render_dashboard(tag: TagConfig, title: str, data: DashboardData, output_pat
     draw.rectangle((0, 0, tag.width, 58), fill=BLACK)
     draw.text((22, 13), title, font=fonts.title, fill=WHITE)
     draw.text((tag.width - 105, 17), now, font=fonts.medium, fill=WHITE)
+    if show_battery:
+        _battery(draw, max(tag.width - 315, tag.width // 2), 18, tag_status, fonts)
 
     gutter = 18
     top = 76
@@ -90,6 +100,36 @@ def _section(draw: ImageDraw.ImageDraw, title: str, x: int, y: int, w: int, h: i
     draw.rectangle((x, y, x + w, y + h), outline=BLACK, width=2)
     draw.rectangle((x, y, x + w, y + 32), fill=LIGHT)
     draw.text((x + 10, y + 4), title, font=fonts.section, fill=BLACK)
+
+
+def _battery(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    tag_status: TagStatus | None,
+    fonts: Fonts,
+) -> None:
+    label = _battery_label(tag_status)
+    outline = (x, y + 4, x + 42, y + 22)
+    draw.rectangle(outline, outline=WHITE, width=2)
+    draw.rectangle((x + 43, y + 9, x + 47, y + 17), fill=WHITE)
+
+    percent = tag_status.battery_percent if tag_status else None
+    if percent is not None:
+        fill_width = max(2, int(36 * max(0, min(100, percent)) / 100))
+        draw.rectangle((x + 3, y + 7, x + 3 + fill_width, y + 19), fill=WHITE)
+
+    draw.text((x + 55, y), label, font=fonts.small, fill=WHITE)
+
+
+def _battery_label(tag_status: TagStatus | None) -> str:
+    if not tag_status:
+        return "BAT --"
+    if tag_status.battery_percent is not None:
+        return f"BAT {tag_status.battery_percent}%"
+    if tag_status.battery_mv is not None:
+        return f"BAT {tag_status.battery_mv / 1000:.2f}V"
+    return "BAT --"
 
 
 def _clip(value: str, limit: int) -> str:

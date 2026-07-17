@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import hashlib
 import logging
 import time
-from pathlib import Path
 
 from epaper_dashboard.config import AppConfig, TagConfig, load_config
+from epaper_dashboard.fingerprint import content_digest
 from epaper_dashboard.render import render_dashboard
 from epaper_dashboard.sources import load_dashboard_data
 from epaper_dashboard.upload import OpenEPaperLinkClient
@@ -43,29 +42,35 @@ def _process_tag(config: AppConfig, client: OpenEPaperLinkClient, tag: TagConfig
     dashboard = config.dashboards.get(tag.dashboard, {})
     title = str(dashboard.get("title", tag.name))
     data = load_dashboard_data(config.sources, dashboard)
-
-    image_path = config.data_dir / f"{tag.name}.jpg"
-    render_dashboard(tag, title, data, image_path)
-
-    digest = _sha256(image_path)
-    state_path = config.data_dir / f"{tag.name}.sha256"
+    digest = content_digest(data)
+    state_path = config.data_dir / f"{tag.name}.content.sha256"
     previous_digest = state_path.read_text(encoding="utf-8").strip() if state_path.exists() else ""
 
-    if digest == previous_digest:
-        LOG.info("Skipping %s; rendered image unchanged", tag.name)
+    if config.efficiency.get("upload_only_on_content_change", True) and digest == previous_digest:
+        LOG.info("Skipping %s; dashboard content unchanged", tag.name)
         return
 
+    tag_status = None
+    rendering_config = dict(dashboard.get("rendering", {}))
+    if rendering_config.get("show_battery", True):
+        try:
+            tag_status = client.get_tag_status(tag.mac)
+        except Exception:
+            LOG.exception("Failed to read battery status for %s", tag.name)
+
+    image_path = config.data_dir / f"{tag.name}.jpg"
+    render_dashboard(
+        tag,
+        title,
+        data,
+        image_path,
+        tag_status=tag_status,
+        show_battery=bool(rendering_config.get("show_battery", True)),
+    )
+
     LOG.info("Uploading %s to %s", image_path, tag.name)
-    client.upload_image(tag.mac, image_path, dither=tag.dither)
+    client.upload_image(tag.mac, image_path, dither=tag.dither, lut=tag.lut)
     state_path.write_text(digest, encoding="utf-8")
-
-
-def _sha256(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as file:
-        for chunk in iter(lambda: file.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def _next_sleep(next_runs: dict[str, float]) -> int:
