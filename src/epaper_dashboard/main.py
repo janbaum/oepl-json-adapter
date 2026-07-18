@@ -4,6 +4,8 @@ import argparse
 import logging
 import time
 from dataclasses import dataclass
+from datetime import datetime
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from epaper_dashboard.config import AppConfig, TagConfig, load_config
 from epaper_dashboard.fingerprint import content_digest
@@ -100,6 +102,7 @@ def _process_tag(config: AppConfig, client: OpenEPaperLinkClient, tag: TagConfig
         tag_status=tag_status,
         show_battery=show_battery,
         layout=layout,
+        updated_at=_dashboard_time(dashboard),
     )
 
     if (
@@ -136,6 +139,16 @@ def _dashboard_layout(tag: TagConfig, dashboard: dict) -> str:
         return "transportation"
 
     return "overview"
+
+
+def _dashboard_time(dashboard: dict) -> datetime:
+    timezone_name = str(dashboard.get("timezone", "")).strip()
+    if timezone_name:
+        try:
+            return datetime.now(ZoneInfo(timezone_name))
+        except ZoneInfoNotFoundError:
+            LOG.warning("Unknown dashboard timezone %s; using local time", timezone_name)
+    return datetime.now()
 
 
 def _parse_args() -> argparse.Namespace:
