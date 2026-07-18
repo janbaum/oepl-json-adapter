@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 
 from epaper_dashboard.config import TagConfig
-from epaper_dashboard.models import DashboardData, TagStatus
+from epaper_dashboard.models import DashboardData, Departure, TagStatus
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -22,6 +22,7 @@ def render_dashboard(
     *,
     tag_status: TagStatus | None = None,
     show_battery: bool = True,
+    layout: str = "overview",
 ) -> Path:
     image = Image.new("RGB", (tag.width, tag.height), WHITE)
     draw = ImageDraw.Draw(image)
@@ -34,6 +35,12 @@ def render_dashboard(
     draw.text((tag.width - 105, 17), now, font=fonts.medium, fill=WHITE)
     if show_battery:
         _battery(draw, max(tag.width - 315, tag.width // 2), 18, tag_status, fonts)
+
+    if layout == "transportation" or data.transit_groups:
+        _transportation_body(draw, tag, data, fonts)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        image.save(output_path, "JPEG", quality=95)
+        return output_path
 
     gutter = 18
     top = 76
@@ -77,6 +84,65 @@ def render_dashboard(
     output_path.parent.mkdir(parents=True, exist_ok=True)
     image.save(output_path, "JPEG", quality=95)
     return output_path
+
+
+def _transportation_body(draw: ImageDraw.ImageDraw, tag: TagConfig, data: DashboardData, fonts: Fonts) -> None:
+    gutter = 18
+    y = 76
+    row_h = 26
+    group_gap = 10
+    current_origin = None
+    groups = data.transit_groups
+
+    if not groups:
+        _section(draw, "Departures", gutter, y, tag.width - gutter * 2, tag.height - y - gutter, fonts)
+        y += 42
+        for departure in data.departures[:10]:
+            _transport_row(draw, departure, gutter + 12, y, tag.width - gutter * 2 - 24, fonts)
+            y += row_h
+        return
+
+    for group in groups:
+        if y > tag.height - 48:
+            break
+
+        if group.origin != current_origin:
+            draw.text((gutter, y), _clip(group.origin, 52), font=fonts.section, fill=BLACK)
+            y += 29
+            current_origin = group.origin
+
+        draw.rectangle((gutter, y, tag.width - gutter, y + 28), fill=LIGHT)
+        draw.text((gutter + 10, y + 3), _clip(group.title, 58), font=fonts.small_bold, fill=BLACK)
+        y += 34
+
+        if not group.departures:
+            draw.text((gutter + 18, y), "No connections", font=fonts.small, fill=BLACK)
+            y += row_h
+        else:
+            for departure in group.departures:
+                if y > tag.height - 28:
+                    break
+                _transport_row(draw, departure, gutter + 18, y, tag.width - gutter * 2 - 18, fonts)
+                y += row_h
+        y += group_gap
+
+
+def _transport_row(
+    draw: ImageDraw.ImageDraw,
+    departure: Departure,
+    x: int,
+    y: int,
+    width: int,
+    fonts: Fonts,
+) -> None:
+    delayed = departure.delay_minutes > 0 or departure.cancelled
+    if delayed:
+        draw.rectangle((x - 4, y - 1, x + width, y + 23), fill=YELLOW)
+
+    status = _departure_status(departure.delay_minutes, departure.cancelled)
+    platform = f" Gl. {departure.platform}" if departure.platform else ""
+    text = f"{departure.time.strftime('%H:%M')}  {departure.line}  {_clip(departure.destination, 33)}{platform} {status}"
+    draw.text((x, y), text, font=fonts.small, fill=BLACK)
 
 
 class Fonts:

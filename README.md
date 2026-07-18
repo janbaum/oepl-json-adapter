@@ -137,6 +137,78 @@ sources:
     excluded_products: ["ICE", "IC", "EC"]
 ```
 
+For a dedicated grouped transport dashboard, point a tag at the `transportation` dashboard and configure multiple directions:
+
+```yaml
+tags:
+  - name: transport
+    dashboard: "transportation"
+
+dashboards:
+  transportation:
+    title: "Transit"
+    layout: "transportation"
+    sections:
+      transit:
+        max_items: 12
+        directions:
+          - name: "FfM Hbf -> Darmstadt Hbf"
+            mode: "trip"
+            src_station_id: "..."
+            src_label: "FfM Hbf"
+            dst_station_id: "..."
+            dst_label: "Darmstadt Hbf"
+            max_items: 2
+            excluded_products: ["ICE", "IC", "EC"]
+          - name: "FfM Hbf -> Offenbach Marktplatz"
+            mode: "trip"
+            src_station_id: "..."
+            src_label: "FfM Hbf"
+            dst_station_id: "..."
+            dst_label: "Offenbach Marktplatz"
+            max_items: 2
+          - name: "Willy-Brandt-Platz -> Suedbahnhof"
+            mode: "trip"
+            src_station_id: "..."
+            src_label: "FfM Willy-Brandt-Platz"
+            dst_station_id: "..."
+            dst_label: "FfM Suedbahnhof"
+            max_items: 2
+
+sources:
+  transit:
+    enabled: true
+    provider: "rmv_hapi"
+    access_id: "${RMV_ACCESS_ID}"
+```
+
+The renderer keeps the configured order, so put directions from the same source station next to each other. Directions can also live under `sources.transit.directions` if you want one global transport setup, but dashboard-local directions are clearer once you have multiple dashboards.
+
+For a compact transport-only config, this alias is also supported:
+
+```yaml
+dashboards:
+  oeffis:
+    title: "Oeffis"
+    sections:
+      directions:
+        enabled: true
+        max_items: 10
+
+sources:
+  transit:
+    enabled: false
+    provider: "rmv_hapi"
+    access_id: "${RMV_ACCESS_ID}"
+
+  directions:
+    - name: "FfM Sued -> Darmstadt Hbf"
+      mode: "trip"
+      src_station_id: "3000912"
+      dst_station_id: "3004734"
+      max_items: 2
+```
+
 Use RMV's `location.name` endpoint to look up station IDs:
 
 ```text

@@ -13,6 +13,7 @@ LOG = logging.getLogger(__name__)
 
 def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> DashboardData:
     data = load_placeholder_data()
+    sections = dict(dashboard.get("sections", {}))
 
     caldav_config = dict(sources.get("caldav", {}))
     if caldav_config.get("enabled"):
@@ -25,6 +26,7 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 tasks=caldav_data.tasks or data.tasks,
                 departures=data.departures,
                 news=data.news,
+                transit_groups=data.transit_groups,
             )
         except Exception:
             LOG.exception("Failed to load CalDAV data; using placeholder calendar/tasks")
@@ -40,12 +42,14 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 tasks=data.tasks,
                 departures=data.departures,
                 news=rss_data.news or data.news,
+                transit_groups=data.transit_groups,
             )
         except Exception:
             LOG.exception("Failed to load RSS data; using placeholder news")
 
-    transit_config = dict(sources.get("transit", {}))
-    if transit_config.get("enabled"):
+    transit_config = _transit_source_config(sources, dashboard)
+    transit_enabled = bool(transit_config.get("enabled")) or bool(transit_config.get("directions"))
+    if transit_enabled:
         try:
             from epaper_dashboard.sources.transit_source import load_transit_data
 
@@ -55,8 +59,39 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 tasks=data.tasks,
                 departures=transit_data.departures or data.departures,
                 news=data.news,
+                transit_groups=transit_data.transit_groups,
             )
         except Exception:
             LOG.exception("Failed to load transit data; using placeholder departures")
 
     return data
+
+
+def _transit_source_config(sources: dict[str, Any], dashboard: dict[str, Any]) -> dict[str, Any]:
+    config = _dashboard_source_config(sources, dashboard, "transit")
+
+    root_directions = sources.get("directions")
+    if root_directions and not config.get("directions"):
+        config["directions"] = root_directions
+
+    directions_section = dict(dashboard.get("sections", {}).get("directions", {}))
+    if directions_section.get("directions") and not config.get("directions"):
+        config["directions"] = directions_section["directions"]
+    if directions_section.get("enabled"):
+        config["enabled"] = True
+    if "max_items" in directions_section and "max_items" not in config:
+        config["max_items"] = directions_section["max_items"]
+
+    return config
+
+
+def _dashboard_source_config(sources: dict[str, Any], dashboard: dict[str, Any], name: str) -> dict[str, Any]:
+    config = dict(sources.get(name, {}))
+    config.update(dict(dashboard.get("sources", {}).get(name, {})))
+
+    section = dict(dashboard.get("sections", {}).get(name, {}))
+    for key, value in section.items():
+        if key != "enabled":
+            config[key] = value
+
+    return config

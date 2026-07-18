@@ -14,6 +14,15 @@ tags:
     lut: ""
     refresh_seconds: 900
     dashboard: "overview"
+  # - name: "transport"
+  #   mac: "1111111111111111"
+  #   width: 800
+  #   height: 480
+  #   color: "bwy"
+  #   dither: false
+  #   lut: ""
+  #   refresh_seconds: 300
+  #   dashboard: "transportation"
 
 efficiency:
   # When true, uploads are triggered only by dashboard content changes.
@@ -39,6 +48,51 @@ dashboards:
       news:
         enabled: true
         max_items: 4
+  transportation:
+    title: "Transit"
+    timezone: "Europe/Berlin"
+    # The layout is inferred for a dashboard named "transportation",
+    # but keeping it explicit makes the intent obvious.
+    layout: "transportation"
+    rendering:
+      show_battery: true
+    sections:
+      transit:
+        enabled: true
+        max_items: 12
+        # Directions can live here for dashboard-specific transport pages.
+        # They can also live under sources.transit.directions as global defaults.
+        directions:
+          - name: "FfM Hbf -> Darmstadt Hbf"
+            mode: "trip"
+            src_station_id: ""
+            src_label: "FfM Hbf"
+            dst_station_id: ""
+            dst_label: "Darmstadt Hbf"
+            max_items: 2
+            excluded_products: ["ICE", "IC", "EC"]
+          - name: "FfM Hbf -> Offenbach Marktplatz"
+            mode: "trip"
+            src_station_id: ""
+            src_label: "FfM Hbf"
+            dst_station_id: ""
+            dst_label: "Offenbach Marktplatz"
+            max_items: 2
+            excluded_products: ["ICE", "IC", "EC"]
+          - name: "Willy-Brandt-Platz -> Suedbahnhof"
+            mode: "trip"
+            src_station_id: ""
+            src_label: "FfM Willy-Brandt-Platz"
+            dst_station_id: ""
+            dst_label: "FfM Suedbahnhof"
+            max_items: 2
+            excluded_products: ["ICE", "IC", "EC"]
+      # Alias for simple transport-only dashboards. This enables the
+      # transportation layout, while the actual route definitions may live
+      # under sources.directions.
+      directions:
+        enabled: false
+        max_items: 10
 
 sources:
   caldav:
@@ -79,6 +133,12 @@ sources:
       - "EC"
     lines: []
     destination_names: []
+    # Optional global directions. Prefer dashboard sections for per-dashboard
+    # transport pages.
+    directions: []
+  # Compatibility alias for transport-only setups. If present, this is used
+  # as sources.transit.directions.
+  directions: []
   rss:
     enabled: false
     timeout_seconds: 20

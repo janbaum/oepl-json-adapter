@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -29,6 +29,14 @@ class Departure:
 
 
 @dataclass(frozen=True)
+class TransitGroup:
+    title: str
+    origin: str
+    destination: str | None
+    departures: list[Departure] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class NewsItem:
     title: str
     source: str | None = None
@@ -44,7 +52,8 @@ class TagStatus:
 
 @dataclass(frozen=True)
 class DashboardData:
-    calendar: list[CalendarEvent]
-    tasks: list[TaskItem]
-    departures: list[Departure]
-    news: list[NewsItem]
+    calendar: list[CalendarEvent] = field(default_factory=list)
+    tasks: list[TaskItem] = field(default_factory=list)
+    departures: list[Departure] = field(default_factory=list)
+    news: list[NewsItem] = field(default_factory=list)
+    transit_groups: list[TransitGroup] = field(default_factory=list)

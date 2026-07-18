@@ -66,6 +66,7 @@ def _process_tag(config: AppConfig, client: OpenEPaperLinkClient, tag: TagConfig
         image_path,
         tag_status=tag_status,
         show_battery=bool(rendering_config.get("show_battery", True)),
+        layout=_dashboard_layout(tag, dashboard),
     )
 
     LOG.info("Uploading %s to %s", image_path, tag.name)
@@ -76,6 +77,20 @@ def _process_tag(config: AppConfig, client: OpenEPaperLinkClient, tag: TagConfig
 def _next_sleep(next_runs: dict[str, float]) -> int:
     next_due = min(next_runs.values())
     return max(5, int(next_due - time.monotonic()))
+
+
+def _dashboard_layout(tag: TagConfig, dashboard: dict) -> str:
+    configured = dashboard.get("layout")
+    if configured:
+        return str(configured)
+
+    sections = dict(dashboard.get("sections", {}))
+    transit_section = dict(sections.get("transit", {}))
+    directions_section = dict(sections.get("directions", {}))
+    if tag.dashboard == "transportation" or transit_section.get("directions") or directions_section.get("enabled"):
+        return "transportation"
+
+    return "overview"
 
 
 if __name__ == "__main__":

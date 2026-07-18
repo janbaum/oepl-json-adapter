@@ -6,7 +6,7 @@ from typing import Any
 import requests
 from dateutil import parser
 
-from epaper_dashboard.models import DashboardData, Departure
+from epaper_dashboard.models import DashboardData, Departure, TransitGroup
 
 
 def load_transit_data(config: dict[str, Any], dashboard: dict[str, Any]) -> DashboardData:
@@ -22,6 +22,10 @@ def load_transit_data(config: dict[str, Any], dashboard: dict[str, Any]) -> Dash
 
 
 def _load_rmv_hapi_data(config: dict[str, Any], limit: int) -> DashboardData:
+    directions = config.get("directions") or []
+    if directions:
+        return _load_rmv_hapi_groups(config, limit, directions)
+
     mode = str(config.get("mode", "departure_board"))
     if mode == "departure_board":
         departures = _rmv_departure_board(config, limit)
@@ -33,6 +37,39 @@ def _load_rmv_hapi_data(config: dict[str, Any], limit: int) -> DashboardData:
     departures = _filter_departures(departures, config)
     departures.sort(key=lambda item: item.time)
     return DashboardData(calendar=[], tasks=[], departures=departures[:limit], news=[])
+
+
+def _load_rmv_hapi_groups(config: dict[str, Any], limit: int, directions: list[dict[str, Any]]) -> DashboardData:
+    groups = []
+    flat_departures = []
+    for direction in directions:
+        direction_config = {**config, **direction, "directions": []}
+        direction_limit = int(direction.get("max_items", direction.get("max_journeys", limit)))
+        if "mode" not in direction_config or not direction_config["mode"]:
+            direction_config["mode"] = "trip" if direction_config.get("dst_station_id") else "departure_board"
+
+        if direction_config["mode"] == "departure_board":
+            departures = _rmv_departure_board(direction_config, direction_limit)
+        elif direction_config["mode"] == "trip":
+            departures = _rmv_trip_departures(direction_config, direction_limit)
+        else:
+            raise ValueError(f"Unsupported RMV transit mode: {direction_config['mode']}")
+
+        departures = _filter_departures(departures, direction_config)
+        departures.sort(key=lambda item: item.time)
+        departures = departures[:direction_limit]
+        flat_departures.extend(departures)
+        groups.append(
+            TransitGroup(
+                title=_direction_title(direction_config),
+                origin=str(direction_config.get("src_label") or direction_config.get("src_station_id") or ""),
+                destination=str(direction_config.get("dst_label") or direction_config.get("dst_station_id") or ""),
+                departures=departures,
+            )
+        )
+
+    flat_departures.sort(key=lambda item: item.time)
+    return DashboardData(calendar=[], tasks=[], departures=flat_departures[:limit], news=[], transit_groups=groups)
 
 
 def _rmv_departure_board(config: dict[str, Any], limit: int) -> list[Departure]:
@@ -258,6 +295,15 @@ def _has_departure_filter(config: dict[str, Any]) -> bool:
             config.get("destination_names"),
         ]
     )
+
+
+def _direction_title(config: dict[str, Any]) -> str:
+    if config.get("name"):
+        return str(config["name"])
+
+    source = str(config.get("src_label") or config.get("src_station_id") or "?")
+    destination = str(config.get("dst_label") or config.get("direction_label") or config.get("dst_station_id") or "")
+    return f"{source} -> {destination}" if destination else source
 
 
 def _rmv_product_name(item: dict[str, Any]) -> str:
