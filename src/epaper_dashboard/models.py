@@ -57,3 +57,4 @@ class DashboardData:
     departures: list[Departure] = field(default_factory=list)
     news: list[NewsItem] = field(default_factory=list)
     transit_groups: list[TransitGroup] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)

@@ -11,3 +11,18 @@ services:
     volumes:
       - ./config:/config:ro
       - ./data:/data
+
+  debug:
+    build: .
+    container_name: epaper-dashboard-debug
+    profiles:
+      - debug
+    environment:
+      EPAPER_CONFIG: /config/config.yaml
+      NEXTCLOUD_USERNAME: ${NEXTCLOUD_USERNAME:-}
+      NEXTCLOUD_APP_PASSWORD: ${NEXTCLOUD_APP_PASSWORD:-}
+      RMV_ACCESS_ID: ${RMV_ACCESS_ID:-}
+    volumes:
+      - ./config:/config:ro
+      - ./data:/data
+    command: ["epaper-dashboard", "--debug"]

@@ -28,6 +28,9 @@ efficiency:
   # When true, uploads are triggered only by dashboard content changes.
   # Clock and battery rendering are intentionally ignored for this decision.
   upload_only_on_content_change: true
+  # Keep production tags unchanged when a source fails. Debug mode still
+  # renders the problem panel locally.
+  skip_upload_on_source_error: true
 
 dashboards:
   overview:
@@ -121,9 +124,16 @@ sources:
     all_departures: true
     duration_minutes: 60
     max_journeys: 10
+    # RMV trip search rejects larger values; per-direction max_items is
+    # capped by this value.
+    trip_max_journeys: 6
     timeout_seconds: 20
     language: "de"
     realtime: true
+    # RMV trip search usually expects originExtId/destExtId.
+    # Numeric extIds are padded automatically, e.g. 3000912 -> 003000912.
+    origin_param: "originExtId"
+    destination_param: "destExtId"
     # Optional local post-filters. Product names match RMV output such as:
     # ICE, IC, EC, RE, RB, S, U-Bahn, Tram, Bus
     included_products: []

@@ -27,6 +27,7 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 departures=data.departures,
                 news=data.news,
                 transit_groups=data.transit_groups,
+                errors=data.errors,
             )
         except Exception:
             LOG.exception("Failed to load CalDAV data; using placeholder calendar/tasks")
@@ -43,6 +44,7 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 departures=data.departures,
                 news=rss_data.news or data.news,
                 transit_groups=data.transit_groups,
+                errors=data.errors,
             )
         except Exception:
             LOG.exception("Failed to load RSS data; using placeholder news")
@@ -60,9 +62,19 @@ def load_dashboard_data(sources: dict[str, Any], dashboard: dict[str, Any]) -> D
                 departures=transit_data.departures or data.departures,
                 news=data.news,
                 transit_groups=transit_data.transit_groups,
+                errors=data.errors + transit_data.errors,
             )
-        except Exception:
-            LOG.exception("Failed to load transit data; using placeholder departures")
+        except Exception as error:
+            LOG.exception("Failed to load transit data")
+            if _dashboard_wants_transit(dashboard):
+                data = DashboardData(
+                    calendar=data.calendar,
+                    tasks=data.tasks,
+                    departures=[],
+                    news=data.news,
+                    transit_groups=[],
+                    errors=data.errors + [f"Transit: {error}"],
+                )
 
     return data
 
@@ -79,10 +91,15 @@ def _transit_source_config(sources: dict[str, Any], dashboard: dict[str, Any]) -
         config["directions"] = directions_section["directions"]
     if directions_section.get("enabled"):
         config["enabled"] = True
-    if "max_items" in directions_section and "max_items" not in config:
+    if "max_items" in directions_section:
         config["max_items"] = directions_section["max_items"]
 
     return config
+
+
+def _dashboard_wants_transit(dashboard: dict[str, Any]) -> bool:
+    sections = dict(dashboard.get("sections", {}))
+    return bool(sections.get("transit") or sections.get("directions"))
 
 
 def _dashboard_source_config(sources: dict[str, Any], dashboard: dict[str, Any], name: str) -> dict[str, Any]:

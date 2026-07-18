@@ -11,7 +11,7 @@ from epaper_dashboard.models import DashboardData, Departure, TransitGroup
 
 def load_transit_data(config: dict[str, Any], dashboard: dict[str, Any]) -> DashboardData:
     provider = str(config.get("provider", "rmv_hapi"))
-    limit = int(dashboard.get("sections", {}).get("transit", {}).get("max_items", 5))
+    limit = _transit_limit(config, dashboard)
 
     if provider == "rmv_hapi":
         return _load_rmv_hapi_data(config, limit)
@@ -19,6 +19,13 @@ def load_transit_data(config: dict[str, Any], dashboard: dict[str, Any]) -> Dash
         return _load_db_transport_rest_data(config, limit)
 
     raise ValueError(f"Unsupported transit provider: {provider}")
+
+
+def _transit_limit(config: dict[str, Any], dashboard: dict[str, Any]) -> int:
+    sections = dict(dashboard.get("sections", {}))
+    transit_section = dict(sections.get("transit", {}))
+    directions_section = dict(sections.get("directions", {}))
+    return int(config.get("max_items") or transit_section.get("max_items") or directions_section.get("max_items") or 5)
 
 
 def _load_rmv_hapi_data(config: dict[str, Any], limit: int) -> DashboardData:
@@ -108,11 +115,13 @@ def _rmv_trip_departures(config: dict[str, Any], limit: int) -> list[Departure]:
         raise ValueError("sources.transit.src_station_id and dst_station_id must be set for RMV trip mode")
 
     params = _rmv_common_params(config)
+    origin_param = str(config.get("origin_param", "originExtId"))
+    destination_param = str(config.get("destination_param", "destExtId"))
     params.update(
         {
-            "originId": src_station_id,
-            "destId": dst_station_id,
-            "numF": max(limit, int(config.get("max_journeys", limit))),
+            origin_param: _rmv_station_id(src_station_id, origin_param),
+            destination_param: _rmv_station_id(dst_station_id, destination_param),
+            "numF": _rmv_trip_count(limit, config),
             "rtMode": "REALTIME" if bool(config.get("realtime", True)) else "OFF",
         }
     )
@@ -148,7 +157,11 @@ def _rmv_get(config: dict[str, Any], endpoint: str, params: dict[str, str | int]
         headers={"User-Agent": "epaper-dashboard/0.1"},
         timeout=int(config.get("timeout_seconds", 20)),
     )
-    response.raise_for_status()
+    if response.status_code >= 400:
+        detail = response.text.strip()
+        if len(detail) > 500:
+            detail = detail[:497] + "..."
+        raise RuntimeError(f"RMV HAPI {endpoint} failed: {response.status_code} {detail}")
     data = response.json()
     if not isinstance(data, dict):
         raise ValueError(f"Unexpected RMV HAPI response for {endpoint}")
@@ -333,6 +346,18 @@ def _rmv_datetime(date_value: str, time_value: str) -> datetime:
     if not date_value or not time_value:
         raise ValueError("RMV HAPI item is missing date/time")
     return parser.parse(f"{date_value}T{time_value}")
+
+
+def _rmv_station_id(value: str, param_name: str) -> str:
+    stripped = value.strip()
+    if param_name.lower().endswith("extid") and stripped.isdigit():
+        return stripped.zfill(9)
+    return stripped
+
+
+def _rmv_trip_count(limit: int, config: dict[str, Any]) -> int:
+    max_trip_results = int(config.get("trip_max_journeys", 6))
+    return max(1, min(limit, max_trip_results))
 
 
 def _line_product(line: str) -> str:

@@ -94,9 +94,20 @@ def _transportation_body(draw: ImageDraw.ImageDraw, tag: TagConfig, data: Dashbo
     current_origin = None
     groups = data.transit_groups
 
+    if data.errors:
+        _section(draw, "Problems", gutter, y, tag.width - gutter * 2, tag.height - y - gutter, fonts)
+        y += 42
+        for error in data.errors[:5]:
+            draw.text((gutter + 12, y), _clip(error, 70), font=fonts.small, fill=BLACK)
+            y += row_h
+        return
+
     if not groups:
         _section(draw, "Departures", gutter, y, tag.width - gutter * 2, tag.height - y - gutter, fonts)
         y += 42
+        if not data.departures:
+            draw.text((gutter + 12, y), "No connections", font=fonts.small, fill=BLACK)
+            return
         for departure in data.departures[:10]:
             _transport_row(draw, departure, gutter + 12, y, tag.width - gutter * 2 - 24, fonts)
             y += row_h

@@ -9,8 +9,12 @@ from typing import Any
 from epaper_dashboard.models import DashboardData
 
 
-def content_digest(data: DashboardData) -> str:
-    payload = json.dumps(_normalize(data), sort_keys=True, separators=(",", ":"))
+def content_digest(data: DashboardData, metadata: dict[str, Any] | None = None) -> str:
+    payload = json.dumps(
+        {"data": _normalize(data), "metadata": _normalize(metadata or {})},
+        sort_keys=True,
+        separators=(",", ":"),
+    )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 

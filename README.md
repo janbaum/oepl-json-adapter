@@ -35,6 +35,14 @@ The first scaffold includes:
 
 Generated images and upload state are stored in `./data`.
 
+To render once without uploading to the AP:
+
+```sh
+docker compose --profile debug up --build debug
+```
+
+The rendered image will be written to `./data/<tag-name>.jpg`.
+
 ## Efficiency
 
 By default, the service uploads only when dashboard content changes:
@@ -42,9 +50,14 @@ By default, the service uploads only when dashboard content changes:
 ```yaml
 efficiency:
   upload_only_on_content_change: true
+  skip_upload_on_source_error: true
 ```
 
 The content hash is based on calendar events, tasks, departures, and news. Render-only values such as the clock and tag battery status are intentionally ignored, so they do not wake tags by themselves.
+
+Dashboard metadata that changes the actual layout, such as dashboard name, title, dimensions, and layout mode, is part of the hash. This means switching a tag from an overview dashboard to a transportation dashboard triggers one upload even if the source data itself did not change.
+
+When `skip_upload_on_source_error` is enabled, production mode renders an error image into `./data` but does not send it to the tag. Debug mode still renders the problem panel locally.
 
 Battery status is read from the AP tag database endpoint and rendered in the header when enabled:
 
@@ -136,6 +149,8 @@ sources:
     dst_station_id: "3000010"
     excluded_products: ["ICE", "IC", "EC"]
 ```
+
+For RMV `trip` mode the service sends `originExtId` and `destExtId` by default. Plain station IDs like `3000912` are padded automatically to RMV's expected external ID form, e.g. `003000912`.
 
 For a dedicated grouped transport dashboard, point a tag at the `transportation` dashboard and configure multiple directions:
 
